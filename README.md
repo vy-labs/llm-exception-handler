@@ -12,7 +12,7 @@ This project is an automated exception handler that integrates with various exce
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/exception-handler.git
+   git clone https://github.com/vy-labs/exception-handler.git
    cd exception-handler
    ```
 
@@ -67,6 +67,12 @@ Update `config/config.json` with your project settings. Here's an example:
 2. Run the exception handler:
    ```
    python -m exception_handler
+   ```
+
+   By default, the server will start on port 5001. If you need to use a different port, you can set the `EXCEPTION_HANDLER_PORT` environment variable:
+
+   ```
+   EXCEPTION_HANDLER_PORT=5002 python -m exception_handler
    ```
 
 The exception handler will start a Flask server that listens for webhook notifications from your configured exception notifier.

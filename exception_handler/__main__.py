@@ -18,7 +18,7 @@ exception_handler = ExceptionHandler(config)
 def webhook():
     payload = request.json
     notifier_type = 'sentry'  # Use 'sentry' as the default notifier
-    
+    print(payload)
     try:
         notifier = get_notifier(config, notifier_type)
         processed_data = notifier.process_exception(payload)
@@ -30,7 +30,8 @@ def webhook():
     return jsonify(result), 200
 
 def main():
-    app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5001)))
+    port = int(os.getenv('EXCEPTION_HANDLER_PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)
 
 if __name__ == '__main__':
     main()
