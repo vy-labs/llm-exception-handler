@@ -8,7 +8,7 @@ class ExceptionHandler:
         self.vcs_service = get_vcs_service(config)
 
     def handle_exception(self, processed_data):
-        project = next((p for p in self.config['projects'] if p['unique_identifier'] == str(processed_data['project'])), None)
+        project = next((p for p in self.config['projects'] if str(p['unique_identifier']) == str(processed_data['project'])), None)
         
         if not project or processed_data['environment'] not in project['environments']:
             return {"status": "skipped", "reason": "Project or environment not allowed"}

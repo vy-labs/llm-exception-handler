@@ -4,7 +4,6 @@ class SentryNotifier(BaseNotifier):
     def process_exception(self, payload):
         event = payload.get('data', {}).get('event', {})
         exception = event.get('exception', {}).get('values', [{}])[0]
-        
         return {
             "event_id": event.get('event_id'),
             "project": event.get('project'),
