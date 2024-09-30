@@ -1,0 +1,13 @@
+{
+  "projects": [
+    {
+      "unique_identifier": "your_project_id",
+      "environments": ["production", "staging"],
+      "repo": "your-org/your-repo",
+      "local_repo_path": "/path/to/your/local/repo",
+      "notifier": "sentry"
+    }
+  ],
+  "llm_model": "gemini",
+  "vcs_type": "github"
+}

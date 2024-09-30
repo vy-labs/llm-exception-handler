@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "exception-handler"
+version = "0.1.0"
+description = "Handle exceptions via AI"
+authors = ["Dilpreet Singh <makkar.dp@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+langchain-core = "^0.3.6"
+requests = "^2.32.3"
+flask = "^3.0.3"
+pygithub = "^2.4.0"
+gitpython = "^3.1.43"
+python-dotenv = "^1.0.1"
+langchain-google-genai = "^2.0.0"
+pydantic = "^2.9.2"
+sentry-sdk = "^2.14.0"
+langchain = "^0.3.1"
+langsmith = "^0.1.129"
+langchain-openai = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
