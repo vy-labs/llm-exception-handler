@@ -26,21 +26,14 @@ This project is an automated exception handler that integrates with various exce
    poetry install
    ```
 
-4. Copy `.env.example` to `.env` and fill in your API keys:
+4. Copy `.env.example` to `.env` and fill in your API keys and configuration:
    ```
    cp .env.example .env
    ```
 
-5. Copy `config/config.example.json` to `config/config.json` and update with your project settings:
-   ```
-   cp config/config.example.json config/config.json
-   ```
-
 ## Configuration
 
-### Project Configuration
-
-Update `config/config.json` with your project settings. Here's an example:
+Update the `.env` file with your project settings. Here's an example:
 
 ```
 {
@@ -64,7 +57,9 @@ Update `config/config.json` with your project settings. Here's an example:
    poetry shell
    ```
 
-2. Run the exception handler:
+2. Run the exception handler in one of two ways:
+
+   a. As a Flask server (no arguments):
    ```
    python -m exception_handler
    ```
@@ -75,7 +70,14 @@ Update `config/config.json` with your project settings. Here's an example:
    EXCEPTION_HANDLER_PORT=5002 python -m exception_handler
    ```
 
-The exception handler will start a Flask server that listens for webhook notifications from your configured exception notifier.
+   The exception handler will start a Flask server that listens for webhook notifications from your configured exception notifier.
+
+   b. Directly from the command line with a JSON file:
+   ```
+   python -m exception_handler path/to/your/json_file.json
+   ```
+
+   This allows you to process a single exception by providing a JSON file containing the exception data. The result will be printed to the console.
 
 ### Changing the LLM Model
 

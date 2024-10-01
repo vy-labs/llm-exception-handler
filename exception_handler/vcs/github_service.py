@@ -15,13 +15,10 @@ class GitHubService(BaseVCSService):
         self.github_token = os.getenv('GITHUB_ACCESS_TOKEN')
         self.github = Github(self.github_token)
         
-        with open('config/config.json', 'r') as config_file:
-            json_config = json.load(config_file)
-        
-        self.local_repo_path = json_config['projects'][0].get('local_repo_path')
+        self.local_repo_path = self.config['local_repo_path']
         
         if not self.local_repo_path:
-            raise ValueError("local_repo_path not found in config.json")
+            raise ValueError("LOCAL_REPO_PATH environment variable not set")
         
         self.repo = Repo(self.local_repo_path)
 
@@ -30,10 +27,11 @@ class GitHubService(BaseVCSService):
 
     def get_file_content(self, repo, file_path):
         try:
-            content = repo.get_contents(file_path)
-            return base64.b64decode(content.content).decode('utf-8')
+            full_path = os.path.join(self.local_repo_path, file_path)
+            with open(full_path, 'r', encoding='utf-8') as file:
+                return file.read()
         except Exception as e:
-            print(f"Error fetching content for {file_path}: {str(e)}")
+            print(f"Error reading content for {file_path}: {str(e)}")
             return None
 
     def create_pull_request(self, data, repo_name):

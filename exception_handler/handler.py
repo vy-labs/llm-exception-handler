@@ -1,5 +1,6 @@
 from exception_handler.ai.ai_analysis_service import get_ai_service
 from exception_handler.vcs.vcs_factory import get_vcs_service
+import os
 
 class ExceptionHandler:
     def __init__(self, config):
@@ -8,20 +9,15 @@ class ExceptionHandler:
         self.vcs_service = get_vcs_service(config)
 
     def handle_exception(self, processed_data):
-        project = next((p for p in self.config['projects'] if str(p['unique_identifier']) == str(processed_data['project'])), None)
-        
-        if not project or processed_data['environment'] not in project['environments']:
-            return {"status": "skipped", "reason": "Project or environment not allowed"}
-
-        repo_name = project['repo']
+        repo_name = self.config['repo']
         issue_id = processed_data['issue_id']
         
         if self.vcs_service.pull_request_exists(repo_name, issue_id):
             return {"status": "skipped", "reason": "Pull request already exists"}
         
         repo = self.vcs_service.get_repo(repo_name)
+
         trace_files = self._get_trace_files(repo, processed_data['stacktrace'])
-        
         if not trace_files:
             return {"error": "Could not fetch any file content from the repository"}
 
