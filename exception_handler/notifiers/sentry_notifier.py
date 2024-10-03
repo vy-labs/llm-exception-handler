@@ -7,7 +7,7 @@ class SentryNotifier(BaseNotifier):
             return self.process_api_format(payload)
         # Otherwise, assume it's in the webhook format
         else:
-            return self.process_webhook_format(payload.get('data', {}).get('event', {}))
+            return self.process_webhook_format(payload)
 
     def process_webhook_format(self, event):
         # Existing code for processing old format
