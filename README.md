@@ -4,11 +4,44 @@ This project is an automated exception handler that integrates with various exce
 
 ## Features
 
-- Listens for exception notifications (currently supports Sentry)
+- Automatically handles exceptions from Sentry using GitHub Actions
 - Analyzes exceptions using AI (supports Gemini and OpenAI)
 - Creates pull requests with proposed fixes (currently supports GitHub)
+- Can also be run locally or as a hosted service
 
-## Installation
+## Automatic Exception Handling with GitHub Actions
+
+Follow these steps to set up automatic exception handling using GitHub Actions:
+
+1. **Set up Sentry integration with GitHub:**
+   - In your Sentry project settings, navigate to the Integrations section.
+   - Find and enable the GitHub integration.
+   - Configure it to create GitHub issues when alerts are triggered.
+
+2. **Add required secrets to your GitHub repository:**
+   - Go to your repository's Settings > Secrets and variables > Actions.
+   - Add the following secrets:
+     - `SENTRY_AUTH_TOKEN`: Your Sentry API token
+     - `OPENAI_API_KEY`: Your OpenAI API key
+     - `GEMINI_API_KEY`: Your Gemini API key (if using Gemini)
+
+3. **Add required variables to your GitHub repository:**
+   - In the same section as secrets, add the following variable:
+     - `SENTRY_ORG_SLUG`: Your Sentry organization slug
+
+4. **Create the GitHub Actions workflow file:**
+   - Create a new file in your repository at `.github/workflows/sentry-auto-resolve.yml`
+   - Copy the contents of the example workflow file (available in the `examples/sentry-auto-resolve.yml` file in this repository) into your new file.
+
+5. **Commit and push the workflow file to your repository.**
+
+Now, when a Sentry issue is created and triggers a GitHub issue, the workflow will automatically:
+- Extract the Sentry issue details
+- Analyze the exception using AI
+- Propose a fix
+- Create a pull request with the suggested changes
+
+## Local Installation and Usage
 
 1. Clone the repository:
    ```

@@ -1,0 +1,128 @@
+name: Sentry Issue Trigger
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  handle_sentry_issue:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.body, 'Sentry Issue:')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Cache LLM Exception Handler
+        uses: actions/cache@v3
+        with:
+          path: /tmp/llm-exception-handler
+          key: ${{ runner.os }}-llm-handler-${{ hashFiles('/tmp/llm-exception-handler/**') }}
+          restore-keys: |
+            ${{ runner.os }}-llm-handler-
+
+      - name: Install Poetry and dependencies
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Clone or update LLM Exception Handler
+        run: |
+          if [ ! -d "/tmp/llm-exception-handler" ]; then
+            git clone --depth 1 --branch v0.1.0 https://github.com/vy-labs/llm-exception-handler.git /tmp/llm-exception-handler
+          else
+            cd /tmp/llm-exception-handler
+            git fetch --tags
+            git checkout v0.1.0
+          fi
+          cd /tmp/llm-exception-handler
+          poetry install
+
+      - name: Extract Sentry issue URL and fetch issue details
+        id: sentry_details
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG_SLUG }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<EOF
+          import os
+          import re
+          import sys
+          import json
+          import requests
+
+          def extract_url(issue_body):
+              match = re.search(r'https://\S+sentry\.io/issues/\d+(?:\?[^/\s]+)?', issue_body)
+              return match.group(0) if match else None
+
+          def fetch_issue_details(sentry_url, auth_token, org_slug):
+              issue_id = re.search(r'/issues/(\d+)', sentry_url).group(1)
+              api_url = f"https://sentry.io/api/0/organizations/{org_slug}/issues/{issue_id}/events/latest/"
+              headers = {
+                  'Authorization': f'Bearer {auth_token}',
+                  'Content-Type': 'application/json'
+              }
+              response = requests.get(api_url, headers=headers)
+              response.raise_for_status()
+              return response.json()
+
+          issue_body = os.environ['ISSUE_BODY']
+          sentry_url = extract_url(issue_body)
+          if not sentry_url:
+              print("No Sentry URL found in the issue body")
+              sys.exit(1)
+
+          try:
+              issue_details = fetch_issue_details(sentry_url, os.environ['SENTRY_AUTH_TOKEN'], os.environ['SENTRY_ORG'])
+              with open('/tmp/issue_details.json', 'w') as f:
+                  json.dump(issue_details, f)
+              print(f"SENTRY_URL={sentry_url}")
+              print("Successfully wrote /tmp/issue_details.json")
+          except Exception as e:
+              print(f"Error fetching Sentry issue details: {e}")
+              sys.exit(1)
+          EOF
+
+      - name: Process exception with LLM Exception Handler
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_ACCESS_TOKEN: ${{ github.token }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          REPO_NAME: ${{ github.repository }}
+          LOCAL_REPO_PATH: ${{ github.workspace }}
+        run: |
+          cd /tmp/llm-exception-handler
+          cp .env.example .env
+          {
+            echo "OPENAI_API_KEY=$OPENAI_API_KEY"
+            echo "GITHUB_ACCESS_TOKEN=$GITHUB_ACCESS_TOKEN"
+            echo "GEMINI_API_KEY=$GEMINI_API_KEY"
+            echo "REPO_NAME=$REPO_NAME"
+            echo "LOCAL_REPO_PATH=$LOCAL_REPO_PATH"
+          } >> .env
+          poetry run python -m exception_handler /tmp/issue_details.json
+
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -f /tmp/issue_details.json
