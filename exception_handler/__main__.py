@@ -22,9 +22,8 @@ config = {
 exception_handler = ExceptionHandler(config)
 
 def process_event(event):
-    notifier_type = config['notifier']
     try:
-        notifier = get_notifier(config, notifier_type)
+        notifier = get_notifier(config)
         processed_data = notifier.process_exception(event)
     except ValueError as e:
         return {"error": str(e)}, 400

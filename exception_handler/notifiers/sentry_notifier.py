@@ -1,6 +1,12 @@
+import os
+import re
 from exception_handler.notifiers.base_notifier import BaseNotifier
 
 class SentryNotifier(BaseNotifier):
+    def __init__(self, config):
+        super().__init__(config)
+        self.repo_path = config['local_repo_path']
+
     def process_exception(self, payload):
         # Check if the payload is in the api format
         if 'id' in payload and 'entries' in payload:
@@ -53,7 +59,10 @@ class SentryNotifier(BaseNotifier):
                 "value": exception.get('value'),
                 "module": exception.get('module'),
             },
-            "stacktrace": [frame for frame in exception.get('stacktrace', {}).get('frames', []) if self.is_app_file(frame.get('filename'))],
+            "stacktrace": [
+                frame for frame in exception.get('stacktrace', {}).get('frames', [])
+                if self.is_app_file(frame.get('filename'))
+            ],
             "context": {
                 "request": next((entry.get('data') for entry in payload.get('entries', []) if entry.get('type') == 'request'), {}),
                 "user": payload.get('user', {}),
@@ -69,5 +78,11 @@ class SentryNotifier(BaseNotifier):
     def is_app_file(self, filename):
         if not filename:
             return False
-        # Check if the filename contains only path components
-        return all(part.islower() or part == '_' for part in filename.replace('/', '').replace('.', ''))
+        # Extract the absolute path using regex
+        match = re.search(r'(?:^|\s)([^\s()]+/[^\s()]+\.[\w]+)', filename)
+        if not match:
+            return False
+        absolute_path = match.group(1)
+        # Check if the file exists in the repository
+        full_path = os.path.join(self.repo_path, absolute_path)
+        return os.path.isfile(full_path)
