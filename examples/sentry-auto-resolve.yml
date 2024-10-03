@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.body, 'Sentry Issue:')
 
+    env:
+      LLM_HANDLER_VERSION: v0.2.0 # This should be updated to the latest version
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -35,9 +38,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /tmp/llm-exception-handler
-          key: ${{ runner.os }}-llm-handler-${{ hashFiles('/tmp/llm-exception-handler/**') }}
+          key: ${{ runner.os }}-llm-handler-${{ env.LLM_HANDLER_VERSION }}-${{ hashFiles('/tmp/llm-exception-handler/**') }}
           restore-keys: |
-            ${{ runner.os }}-llm-handler-
+            ${{ runner.os }}-llm-handler-${{ env.LLM_HANDLER_VERSION }}-
 
       - name: Install Poetry and dependencies
         run: |
@@ -48,11 +51,11 @@ jobs:
       - name: Clone or update LLM Exception Handler
         run: |
           if [ ! -d "/tmp/llm-exception-handler" ]; then
-            git clone --depth 1 --branch v0.1.0 https://github.com/vy-labs/llm-exception-handler.git /tmp/llm-exception-handler
+            git clone --depth 1 --branch ${{ env.LLM_HANDLER_VERSION }} https://github.com/vy-labs/llm-exception-handler.git /tmp/llm-exception-handler
           else
             cd /tmp/llm-exception-handler
             git fetch --tags
-            git checkout v0.1.0
+            git checkout ${{ env.LLM_HANDLER_VERSION }}
           fi
           cd /tmp/llm-exception-handler
           poetry install
