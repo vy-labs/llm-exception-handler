@@ -17,17 +17,27 @@ Follow these steps to set up automatic exception handling using GitHub Actions:
    - In your Sentry project settings, navigate to the Integrations section.
    - Find and enable the GitHub integration.
    - Configure it to create GitHub issues when alerts are triggered.
+   - Set up alerts in Sentry:
+     - Go to your Sentry project's "Alerts" section.
+     - Create a new alert rule that triggers when exceptions occur.
+     - Configure the alert to create a GitHub issue when triggered.
+   
+   Alerts are crucial because they determine when and how Sentry will notify GitHub about exceptions. This integration allows the exception handler to automatically process new issues as they arise.
 
 2. **Add required secrets to your GitHub repository:**
    - Go to your repository's Settings > Secrets and variables > Actions.
    - Add the following secrets:
      - `SENTRY_AUTH_TOKEN`: Your Sentry API token
-     - `OPENAI_API_KEY`: Your OpenAI API key
-     - `GEMINI_API_KEY`: Your Gemini API key (if using Gemini)
+       - To obtain this, go to Sentry's "Auth Tokens" page in your account settings.
+       - Create a new token with `project:read`, `event:read`, and `issue:read` scopes.
+     - `OPENAI_API_KEY`: Your OpenAI API key (if using OpenAI)
+     - `GEMINI_API_KEY`: Your Gemini API key (used by default)
 
 3. **Add required variables to your GitHub repository:**
    - In the same section as secrets, add the following variable:
      - `SENTRY_ORG_SLUG`: Your Sentry organization slug
+       - This is typically the lowercase, hyphenated version of your organization name
+       - You can find it in the URL when you're in your Sentry organization's dashboard
 
 4. **Create the GitHub Actions workflow file:**
    - Create a new file in your repository at `.github/workflows/sentry-auto-resolve.yml`
