@@ -28,8 +28,12 @@ Follow these steps to set up automatic exception handling using GitHub Actions:
    - Go to your repository's Settings > Secrets and variables > Actions.
    - Add the following secrets:
      - `SENTRY_AUTH_TOKEN`: Your Sentry API token
-       - To obtain this, go to Sentry's "Auth Tokens" page in your account settings.
-       - Create a new token with `project:read`, `event:read`, and `issue:read` scopes.
+       - To obtain this, go to Sentry's "Settings" > "Developer Settings" > "New Internal Integration".
+       - Name it "GitHub Actions Integration" and grant it the following permissions:
+         - Project: Read
+         - Issue & Event: Read
+         - Organization: Read
+       - After creating the integration, copy the generated token.
      - `OPENAI_API_KEY`: Your OpenAI API key (if using OpenAI)
      - `GEMINI_API_KEY`: Your Gemini API key (used by default)
 
@@ -39,11 +43,19 @@ Follow these steps to set up automatic exception handling using GitHub Actions:
        - This is typically the lowercase, hyphenated version of your organization name
        - You can find it in the URL when you're in your Sentry organization's dashboard
 
-4. **Create the GitHub Actions workflow file:**
+4. **Set up webhook (for local or cloud hosting only):**
+   - If you're hosting the exception handler locally or on a cloud service (not using GitHub Actions), you need to set up a webhook in Sentry:
+     - Go to your Sentry project settings.
+     - Navigate to "Integrations" > "Webhooks".
+     - Create a new webhook and enter the URL where your exception handler is hosted.
+     - Configure the webhook to trigger on the "issue" event.
+   - If you're using GitHub Actions, you can leave the webhook configuration blank.
+
+5. **Create the GitHub Actions workflow file:**
    - Create a new file in your repository at `.github/workflows/sentry-auto-resolve.yml`
    - Copy the contents of the example workflow file (available in the `examples/sentry-auto-resolve.yml` file in this repository) into your new file.
 
-5. **Commit and push the workflow file to your repository.**
+6. **Commit and push the workflow file to your repository.**
 
 Now, when a Sentry issue is created and triggers a GitHub issue, the workflow will automatically:
 - Extract the Sentry issue details
