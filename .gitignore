@@ -36,3 +36,4 @@ Thumbs.db
 # Project specific
 config/config.json
 test.py
+test_comment.py

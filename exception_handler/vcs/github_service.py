@@ -162,7 +162,18 @@ class GitHubService(BaseVCSService):
         return {"status": "success", "pr_url": pr.html_url}
 
     def _apply_diff_and_update_branch(self, repo, diff_content, branch_name):
-        self.repo.git.checkout(branch_name)
+        # Fetch the latest changes from the remote
+        self.repo.git.fetch('origin')
+
+        try:
+            # Try to check out the branch
+            self.repo.git.checkout(branch_name)
+        except Exception as e:
+            print(f"Error checking out branch {branch_name}: {e}")
+            # If the branch doesn't exist locally, create it
+            self.repo.git.checkout('-b', branch_name, f'origin/{branch_name}')
+
+        # Pull the latest changes
         self.repo.git.pull('origin', branch_name)
 
         diff_content = self._clean_diff_content(diff_content)
@@ -197,3 +208,29 @@ class GitHubService(BaseVCSService):
             updated_body += f"\n\nGitHub Issue: {issue_link}"
 
         return updated_body
+
+    def add_pr_comment(self, repo_name, pr_number, comment_body, analysis):
+        try:
+            repo = self.get_repo(repo_name)
+            pr = repo.get_pull(pr_number)
+            # Apply the diff to the branch
+            self._apply_diff_and_update_branch(repo, analysis['diff'], pr.head.ref)
+            # Create the comment
+            comment = pr.create_issue_comment(comment_body)
+            
+            return {
+                "status": "success",
+                "comment_url": comment.html_url,
+                "pr_url": pr.html_url
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def _create_comment_body(self, analysis):
+        return f"""
+        Based on the PR comment, here's an updated analysis:
+
+        {analysis['analysis']}
+
+        The changes have been applied to the branch. Please review and make any necessary adjustments.
+        """

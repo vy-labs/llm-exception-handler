@@ -64,22 +64,19 @@ class ExceptionHandler:
 
         pr_details = self.vcs_service.get_pull_request(repo_name, pr_number)
         
-        # Extract affected files and their stacktraces from the PR description
-        affected_files, stacktraces = self._extract_affected_files_and_stacktraces(pr_details['body'])
+        affected_files = self._extract_affected_files(pr_details['body'])
 
-        # Fetch the content of affected files
         file_contents = {}
         for file_path in affected_files:
             content = self.vcs_service.get_file_content(self.vcs_service.get_repo(repo_name), file_path)
             if content:
                 file_contents[file_path] = content
 
-        # Get the original analysis from the PR description
         original_analysis = self._extract_original_analysis(pr_details['body'])
 
-        analysis_result = self.ai_service.process_comment(comment, pr_details, file_contents, stacktraces, original_analysis)
-
-        vcs_response = self.vcs_service.update_pull_request(repo_name, pr_number, analysis_result)
+        analysis_result = self.ai_service.process_comment(comment, pr_details, file_contents, original_analysis)
+        comment_body = self.vcs_service._create_comment_body(analysis_result['analysis'])
+        vcs_response = self.vcs_service.add_pr_comment(repo_name, pr_number, comment_body, analysis_result['analysis'])
 
         return {
             "status": "success",
@@ -87,25 +84,16 @@ class ExceptionHandler:
             "vcs_response": vcs_response
         }
 
-    def _extract_affected_files_and_stacktraces(self, pr_body):
+    def _extract_affected_files(self, pr_body):
         affected_files = []
-        stacktraces = {}
         
         # Extract affected files
-        files_section = re.search(r'Affected Files:\n(.*?)\n\n', pr_body, re.DOTALL)
+        files_section = re.search(r'Affected Files:\s*(.*?)\s*(?:Analysis and Proposed Fix:|$)', pr_body, re.DOTALL)
         if files_section:
-            affected_files = [file.strip() for file in files_section.group(1).split(',')]
+            # Split the files, handling potential newlines and commas
+            affected_files = [file.strip() for file in re.split(r'[,\n]+', files_section.group(1)) if file.strip()]
 
-        # Extract stacktraces
-        stacktrace_section = re.search(r'Stacktrace:\n```(.*?)```', pr_body, re.DOTALL)
-        if stacktrace_section:
-            stacktrace_json = json.loads(stacktrace_section.group(1))
-            for frame in stacktrace_json:
-                file_path = frame.get('filename')
-                if file_path and file_path not in stacktraces:
-                    stacktraces[file_path] = frame
-
-        return affected_files, stacktraces
+        return affected_files
 
     def _extract_original_analysis(self, pr_body):
         analysis_start = pr_body.find("Analysis and Proposed Fix:")
