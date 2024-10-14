@@ -6,6 +6,7 @@ from github import Github
 from git import Repo
 from dotenv import load_dotenv
 from exception_handler.vcs.base_vcs_service import BaseVCSService
+import re
 
 load_dotenv()
 
@@ -40,7 +41,7 @@ class GitHubService(BaseVCSService):
             branch_name = f"fix/exception-bot/{data['issue_id']}"
             commit_message = f"Fix {data['exception_type']} exception"
             pr_title = f"[Exception Bot] Fix for {data['exception_type']} exception"
-            pr_body = self._create_pr_body(data)
+            pr_body = self._create_pr_body(data, github_repo.full_name)
 
             self._apply_diff_and_create_pr(github_repo, data['proposed_fix'], branch_name, 
                                            commit_message, pr_title, pr_body)
@@ -97,10 +98,13 @@ class GitHubService(BaseVCSService):
         except Exception as e:
             print(f"Error creating Pull Request: {e}")
 
-    def _create_pr_body(self, data):
+    def _create_pr_body(self, data, repo_full_name):
+        issue_link = f"https://github.com/{repo_full_name}/issues/{data['issue_id']}"
+        sentry_url = data.get('sentry_url', 'N/A')  # Get the Sentry URL from the data
         return f"""
         This is an auto-generated pull request to fix this sentry exception.
-        Sentry Issue: {data['web_url']}
+        Sentry Issue: {sentry_url}
+        GitHub Issue: {issue_link}
         
         Exception Type: {data['exception_type']}
         Exception Value: {data['exception_value']}
@@ -113,7 +117,7 @@ class GitHubService(BaseVCSService):
         
         Please review and merge if appropriate.
         """
-    
+
     def _clean_diff_content(self, diff_content):
          # Remove any escape characters that might cause issues
         cleaned_diff = diff_content.replace('\\n', '\n')
@@ -132,3 +136,64 @@ class GitHubService(BaseVCSService):
         cleaned_diff = cleaned_diff.rstrip() + '\n'
 
         return cleaned_diff
+
+    def get_pull_request(self, repo_name, pr_number):
+        repo = self.get_repo(repo_name)
+        pr = repo.get_pull(pr_number)
+        return {
+            "title": pr.title,
+            "body": pr.body,
+            "head_branch": pr.head.ref,
+            "base_branch": pr.base.ref,
+            "files_changed": [file.filename for file in pr.get_files()]
+        }
+
+    def update_pull_request(self, repo_name, pr_number, updated_analysis):
+        repo = self.get_repo(repo_name)
+        pr = repo.get_pull(pr_number)
+        branch_name = pr.head.ref
+
+        # Apply the new changes
+        self._apply_diff_and_update_branch(repo, updated_analysis['analysis']['diff'], branch_name)
+
+        # Update PR description
+        pr.edit(body=self._create_updated_pr_body(pr.body, updated_analysis['analysis']['analysis']))
+
+        return {"status": "success", "pr_url": pr.html_url}
+
+    def _apply_diff_and_update_branch(self, repo, diff_content, branch_name):
+        self.repo.git.checkout(branch_name)
+        self.repo.git.pull('origin', branch_name)
+
+        diff_content = self._clean_diff_content(diff_content)
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.diff', delete=False) as temp_file:
+            temp_file.write(diff_content)
+            temp_file_path = temp_file.name
+
+        try:
+            self.repo.git.apply(temp_file_path)
+        except Exception as e:
+            print(f"Error applying diff: {e}")
+            os.unlink(temp_file_path)
+            return
+        finally:
+            os.unlink(temp_file_path)
+
+        self.repo.git.add(A=True)
+        self.repo.index.commit("Update fix based on PR comment")
+
+        origin = self.repo.remote('origin')
+        origin.push(branch_name)
+
+    def _create_updated_pr_body(self, original_body, new_analysis):
+        # Preserve the GitHub Issue link if it exists in the original body
+        issue_link_match = re.search(r'GitHub Issue: (https://github\.com/.*?/issues/\d+)', original_body)
+        issue_link = issue_link_match.group(1) if issue_link_match else ""
+
+        updated_body = f"{original_body}\n\n---\n\nUpdated Analysis:\n{new_analysis}"
+        
+        if issue_link:
+            updated_body += f"\n\nGitHub Issue: {issue_link}"
+
+        return updated_body

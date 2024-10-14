@@ -1,8 +1,10 @@
-name: Sentry Issue Trigger
+name: Sentry Issue and PR Comment Trigger
 
 on:
   issues:
     types: [opened]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -10,9 +12,11 @@ permissions:
   issues: write
 
 jobs:
-  handle_sentry_issue:
+  handle_sentry_issue_or_pr_comment:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.body, 'Sentry Issue:')
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.body, 'Sentry Issue:')) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request)
 
     env:
       LLM_HANDLER_VERSION: v0.2.0 # This should be updated to the latest version
@@ -106,13 +110,15 @@ jobs:
               sys.exit(1)
           EOF
 
-      - name: Process exception with LLM Exception Handler
+      - name: Process exception or PR comment with LLM Exception Handler
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_ACCESS_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           REPO_NAME: ${{ github.repository }}
           LOCAL_REPO_PATH: ${{ github.workspace }}
+          GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          SENTRY_URL: ${{ steps.sentry_details.outputs.SENTRY_URL }}
         run: |
           cd /tmp/llm-exception-handler
           cp .env.example .env
@@ -122,10 +128,22 @@ jobs:
             echo "GEMINI_API_KEY=$GEMINI_API_KEY"
             echo "REPO_NAME=$REPO_NAME"
             echo "LOCAL_REPO_PATH=$LOCAL_REPO_PATH"
+            echo "SENTRY_URL=$SENTRY_URL"
           } >> .env
-          poetry run python -m exception_handler /tmp/issue_details.json
+          if [ "${{ github.event_name }}" == "issue_comment" ]; then
+            # Properly escape the comment body to handle special characters
+            ESCAPED_COMMENT=$(echo "${{ github.event.comment.body }}" | jq -aRs .)
+            jq -n \
+              --arg pr_number "${{ github.event.issue.number }}" \
+              --arg comment "$ESCAPED_COMMENT" \
+              '{"pr_number": $pr_number | tonumber, "comment": $comment}' > /tmp/pr_comment.json
+            poetry run python -m exception_handler pr_comment /tmp/pr_comment.json
+          else
+            poetry run python -m exception_handler /tmp/issue_details.json
+          fi
 
       - name: Cleanup temporary files
         if: always()
         run: |
           rm -f /tmp/issue_details.json
+          rm -f /tmp/pr_comment.json

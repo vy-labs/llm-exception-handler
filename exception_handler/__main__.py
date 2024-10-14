@@ -21,7 +21,7 @@ config = {
 
 exception_handler = ExceptionHandler(config)
 
-def process_event(event):
+def process_event(event, github_issue_id):
     try:
         notifier = get_notifier(config)
         processed_data = notifier.process_exception(event)
@@ -31,9 +31,17 @@ def process_event(event):
         return {"error": f"An unexpected error occurred: {str(e)}"}, 500
     
     try:
-        result = exception_handler.handle_exception(processed_data)
+        result = exception_handler.handle_exception(processed_data, github_issue_id)
     except Exception as e:
         return {"error": f"Error handling exception: {str(e)}"}, 500
+    
+    return result, 200
+
+def process_pr_comment(payload):
+    try:
+        result = exception_handler.handle_pr_comment(payload)
+    except Exception as e:
+        return {"error": f"Error handling PR comment: {str(e)}"}, 500
     
     return result, 200
 
@@ -49,13 +57,21 @@ def webhook():
     return jsonify(result), status_code
 
 def main():
-    if len(sys.argv) > 1:
-        # Command-line execution
-        json_file_path = sys.argv[1]
+    if len(sys.argv) > 2:
+        # Command-line execution for PR comment
+        action_type = sys.argv[1]
+        json_file_path = sys.argv[2]
         try:
             with open(json_file_path, 'r') as json_file:
                 payload = json.load(json_file)
-            result, status_code = process_event(payload)
+            if action_type == 'pr_comment':
+                result, status_code = process_pr_comment(payload)
+            else:
+                github_issue_id = os.environ.get('GITHUB_ISSUE_NUMBER')
+                if not github_issue_id:
+                    print("Error: GITHUB_ISSUE_NUMBER environment variable not set")
+                    sys.exit(1)
+                result, status_code = process_event(payload, github_issue_id)
             print(json.dumps(result, indent=2))
             sys.exit(0 if status_code == 200 else 1)
         except FileNotFoundError:
